@@ -59,7 +59,8 @@ class CorridorKeyEngine:
         mixed_precision: bool = True,
         model_precision: torch.dtype = torch.float32,
     ) -> None:
-        self.device = torch.device(device)
+        self.device_str = device
+        self.device = torch.device("cpu") if device == "dml" else torch.device(device)
         self.img_size = img_size
         self.checkpoint_path = checkpoint_path
         self.use_refiner = use_refiner
@@ -107,10 +108,18 @@ class CorridorKeyEngine:
         if skip_reason:
             logger.info("Skipping torch.compile (%s)", skip_reason)
         elif sys.platform == "linux" or sys.platform == "win32":
-            self._compile()
+            if not self.checkpoint_path.endswith(".onnx"):
+                self._compile()
 
-    def _load_model(self) -> GreenFormer:
+    def _load_model(self):
         logger.info("Loading CorridorKey from %s", self.checkpoint_path)
+
+        if self.checkpoint_path.endswith(".onnx"):
+            import onnxruntime as ort
+            providers = ["DmlExecutionProvider"] if self.device_str == "dml" else ["CPUExecutionProvider"]
+            model = ort.InferenceSession(self.checkpoint_path, providers=providers)
+            return model
+
         # Initialize Model (Hiera Backbone)
         model = GreenFormer(
             encoder_name="hiera_base_plus_224.mae_in1k_ft_in1k", img_size=self.img_size, use_refiner=self.use_refiner
@@ -469,8 +478,17 @@ class CorridorKeyEngine:
 
             handle = self.model.refiner.register_forward_hook(scale_hook)
 
-        with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.mixed_precision):
-            prediction = self.model(inp_t)
+        if self.checkpoint_path.endswith(".onnx"):
+            inp_numpy = inp_t.cpu().numpy()
+            ort_inputs = {self.model.get_inputs()[0].name: inp_numpy}
+            ort_outs = self.model.run(None, ort_inputs)
+            prediction = {
+                "alpha": torch.from_numpy(ort_outs[0]).to(self.device),
+                "fg": torch.from_numpy(ort_outs[1]).to(self.device),
+            }
+        else:
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.mixed_precision):
+                prediction = self.model(inp_t)
 
         # Free up unused VRAM in order to keep peak usage down and avoid OOM errors
         del inp_t

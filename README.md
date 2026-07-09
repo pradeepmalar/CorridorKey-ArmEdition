@@ -1,26 +1,18 @@
-# CorridorKey
+# CorridorKey - Windows on ARM Edition
 
+*A fork of the original [CorridorKey](https://github.com/nikopueringer/CorridorKey) by Niko Pueringer, maintained by Pradeep M and optimized for Windows on ARM architecture.*
 
 https://github.com/user-attachments/assets/1fb27ea8-bc91-4ebc-818f-5a3b5585af08
 
-
 When you film something against a green screen, the edges of your subject inevitably blend with the green background. This creates pixels that are a mix of your subject's color and the green screen's color. Traditional keyers struggle to untangle these colors, forcing you to spend hours building complex edge mattes or manually rotoscoping. Even modern "AI Roto" solutions typically output a harsh binary mask, completely destroying the delicate, semi-transparent pixels needed for a realistic composite.
 
-I built CorridorKey to solve this *unmixing* problem. 
+Niko Pueringer, co-founder of Corridor Digital, built CorridorKey to solve this *unmixing* problem. 
 
 You input a raw green screen frame, and the neural network completely separates the foreground object from the green screen. For every single pixel, even the highly transparent ones like motion blur or out-of-focus edges, the model predicts the true, un-multiplied straight color of the foreground element, alongside a clean, linear alpha channel. It doesn't just guess what is opaque and what is transparent; it actively reconstructs the color of the foreground object as if the green screen was never there.
 
 No more fighting with garbage mattes or agonizing over "core" vs "edge" keys. Give CorridorKey a hint of what you want, and it separates the light for you.
 
-## Alert!
-
-This is a brand new release, I'm sure you will discover many ways it can be improved! I invite everyone to help. Join us on the "Corridor Creates" Discord to share ideas, work, forks, etc! https://discord.gg/zvwUrdWXJm
-
-If you want an easy-install, artist-friendly user interface version of CorridorKey, check out [EZ-CorridorKey](https://github.com/edenaion/EZ-CorridorKey)
-
-This project uses [uv](https://docs.astral.sh/uv/) to manage dependencies — it handles Python installation, virtual environments, and packages all in one step, so you don't need to worry about any of that. Just run the appropriate install script for your OS.
-
-Naturally, I have not tested everything. If you encounter errors, please consider patching the code as needed and submitting a pull request.
+This project uses [uv](https://docs.astral.sh/uv/) to manage dependencies. Just run the appropriate install script for your OS.
 
 ## Features
 
@@ -36,11 +28,14 @@ This project was designed and built on a Linux workstation (Puget Systems PC) eq
 
 The most recent build should work on computers with 6-8 gig of VRAM, and it can run on most M1+ Mac systems with unified memory. Yes, it might even work on your old Macbook pro. Let us know on the Discord!
 
+We are also pushing constraints even lower by leveraging the multi-core CPU architecture native to Snapdragon platforms (Windows on ARM) for low-memory environments without a dedicated GPU.
+
 *   **Windows Users (NVIDIA):** To run GPU acceleration natively on Windows, your system MUST have NVIDIA drivers that support **CUDA 12.8 or higher** installed. If your drivers only support older CUDA versions, the installer will likely fallback to the CPU.
+*   **Windows Users (ARM):** This fork explicitly supports Windows on ARM devices (Snapdragon X Plus/Elite). It leverages the multi-core CPU via PyTorch's native backend with optimized thread-pinning, bypassing the need for CUDA or heavy GPUs.
 *   **AMD GPU Users (ROCm):** AMD Radeon RX 7000 series (RDNA3) and RX 9000 series (RDNA4) are supported via ROCm on **Linux**. Windows ROCm support is experimental (torch.compile is not yet functional). See the [AMD ROCm Setup](#amd-rocm-setup) section below.
-*   **GVM (Optional):** Requires approximately **80 GB of VRAM** and utilizes massive Stable Video Diffusion models.
+*   **GVM (Optional):** Requires approximately **80 GB of VRAM** and utilizes massive Stable Video Diffusion models (Not recommended for low-memory ARM devices).
 *   **VideoMaMa (Optional):** Natively requires a massive chunk of VRAM as well (originally 80GB+). While the community has tweaked the architecture to run at less than 24GB, those extreme memory optimizations have not yet been fully implemented in this repository.
-*   **BiRefNet (Optional):** Lightweight AlphaHint generator option.
+*   **BiRefNet (Optional):** Lightweight AlphaHint generator option (Highly recommended for ARM users).
 
 Because GVM and VideoMaMa have huge model file sizes and extreme hardware requirements, installing their modules is completely optional. You can always provide your own Alpha Hints generated from your editing program, BiRefNet, or any other method. The better the AlphaHint, the better the result.
 
@@ -50,7 +45,7 @@ Because GVM and VideoMaMa have huge model file sizes and extreme hardware requir
 
 This project uses **[uv](https://docs.astral.sh/uv/)** to manage Python and all dependencies. uv is a fast, modern replacement for pip that automatically handles Python versions, virtual environments, and package installation in a single step. You do **not** need to install Python yourself — uv does it for you.
 
-**For Windows Users (Automated):**
+**For Windows Users (Automated - NVIDIA / ARM):**
 1.  Clone or download this repository to your local machine.
 2.  Double-click `Install_CorridorKey_Windows.bat`. This will automatically install uv (if needed), set up your Python environment, install all dependencies, and download the CorridorKey model.
     > **Note:** If this is the first time installing uv, any terminal windows you already had open won't see it. The installer script handles the current window automatically, but if you open a new terminal and get "'uv' is not recognized", just close and reopen that terminal.
@@ -167,7 +162,7 @@ Notes:
 
 For the easiest experience, use the provided launcher scripts. These scripts launch a prompt-based configuration wizard in your terminal.
 
-*   **Windows:** Drag-and-drop a video file or folder onto `CorridorKey_DRAG_CLIPS_HERE_local.bat` (Note: Only launch via Drag-and-Drop or CMD. Double-clicking the `.bat` directly will throw an error).
+*   **Windows (NVIDIA / ARM):** Drag-and-drop a video file or folder onto `CorridorKey_DRAG_CLIPS_HERE_local.bat` (Note: Only launch via Drag-and-Drop or CMD. Double-clicking the `.bat` directly will throw an error).
 *   **Linux / Mac:** Run or drag-and-drop a video file or folder onto `./CorridorKey_DRAG_CLIPS_HERE_local.sh`.
 * - Or write `bash` again in terminal. Put a space after and then drag-and-drop `CorridorKey_DRAG_CLIPS_HERE_local.sh` and your clip folder together into terminal, respectively. Then press enter.
 
@@ -187,185 +182,7 @@ For the easiest experience, use the provided launcher scripts. These scripts lau
     *   `/Processed`: An RGBA image containing the Linear Foreground premultiplied against the Linear Alpha (EXR). This pass exists so you can immediately drop the footage into Premiere/Resolve for a quick preview without dealing with complex premultiplication routing. However, if you want more control over your image, working with the raw FG and Matte outputs will give you that.
     *   `/Comp`: A simple preview of the key composited over a checkerboard (PNG).
 
-## But What About Training and Datasets?
 
-If enough people find this project interesting I'll get the training program and datasets uploaded so we can all really go to town making the absolute best keyer fine tunes! Just hit me with some messages on the Corridor Creates discord or here. If enough people lock in, I'll get this stuff packaged up. Hardware requirements are beefy and the gigabytes are plentiful so I don't want to commit the time unless there's demand.
-
-## Device Selection
-
-By default, CorridorKey auto-detects the best available compute device: **CUDA > MPS > CPU**.
-
-**Override via CLI flag:**
-```bash
-uv run python clip_manager.py --action wizard --win_path "V:\..." --device mps
-uv run python clip_manager.py --action run_inference --device cpu
-```
-
-**Override via environment variable:**
-```bash
-export CORRIDORKEY_DEVICE=cpu
-uv run python clip_manager.py --action wizard --win_path "V:\..."
-```
-
-Priority: `--device` flag > `CORRIDORKEY_DEVICE` env var > auto-detect.
-
-### Apple Silicon / MPS Troubleshooting
-
-**Confirm MPS is active:** Run with verbose logging to see which device was selected:
-```bash
-uv run python clip_manager.py --action list 2>&1 | grep -i "device\|backend\|mps"
-```
-
-**MPS operator errors** (`NotImplementedError: ... not implemented for 'MPS'`): Some PyTorch operations are not yet supported on MPS. Enable CPU fallback for those ops:
-```bash
-export PYTORCH_ENABLE_MPS_FALLBACK=1
-uv run python corridorkey_cli.py wizard --win_path "/path/to/clips"
-```
-
-**Silent CPU fallback**: If MPS silently falls back to CPU without this variable, the run will be much slower. Setting `PYTORCH_ENABLE_MPS_FALLBACK=1` in your shell profile (`~/.zshrc`) ensures it is always active.
-
-**Use native MLX instead of PyTorch MPS:** MLX avoids PyTorch's MPS layer entirely and typically runs faster on Apple Silicon. See the [Backend Selection](#backend-selection) section below for setup steps.
-
-### AMD ROCm Setup
-
-CorridorKey supports AMD GPUs via PyTorch's ROCm/HIP backend. The `torch.cuda.*` API works transparently on AMD — HIP intercepts all CUDA calls at runtime, so the inference code runs unchanged.
-
-**Supported GPUs (ROCm 7.2+):**
-- RX 7900 XTX (24GB) / XT (20GB) / GRE (16GB) — RDNA3, gfx1100
-- RX 7800 XT (16GB) / 7700 XT (12GB) — RDNA3, gfx1101
-- RX 9070 XT / 9070 (16GB) — RDNA4, gfx1201
-
-**VRAM requirements:** CorridorKey inference at 2048x2048 uses ~10GB on NVIDIA but ~18GB on AMD due to HIP allocator overhead. The RX 7900 XTX (24GB) and RX 7900 XT (20GB) run at full resolution. Cards with 16GB (RX 7800 XT, 9070 XT) work on Windows (which uses system RAM as overflow) but may OOM on Linux — see notes below.
-
-**Linux native (recommended):**
-```bash
-uv sync --extra rocm
-
-# Verify
-uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
-```
-
-**WSL2 (Windows Subsystem for Linux):**
-
-Requires AMD Adrenalin 26.1.1+ driver on Windows. Install ROCm inside WSL2, then use AMD's WSL-specific torch wheels:
-
-```bash
-# 1. Install ROCm for WSL (Ubuntu 24.04)
-sudo apt update
-wget https://repo.radeon.com/amdgpu-install/7.2/ubuntu/noble/amdgpu-install_7.2.70200-1_all.deb
-sudo apt install ./amdgpu-install_7.2.70200-1_all.deb
-amdgpu-install -y --usecase=wsl,rocm --no-dkms
-
-# 2. Verify GPU is visible
-rocminfo  # should show your AMD GPU
-
-# 3. Install AMD's WSL torch wheels (Python 3.12)
-pip3 install \
-  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/torch-2.9.1%2Brocm7.2.0.lw.git7e1940d4-cp312-cp312-linux_x86_64.whl \
-  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/torchvision-0.24.0%2Brocm7.2.0.gitb919bd0c-cp312-cp312-linux_x86_64.whl \
-  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/triton-3.5.1%2Brocm7.2.0.gita272dfa8-cp312-cp312-linux_x86_64.whl
-
-# 4. Fix WSL runtime library conflict (required)
-location=$(pip3 show torch | grep Location | awk -F ": " '{print $2}')
-rm -f ${location}/torch/lib/libhsa-runtime64.so*
-
-# 5. Install CorridorKey deps AFTER torch (so pip doesn't overwrite ROCm torch)
-pip3 install -e .
-```
-
-**Windows native (experimental):**
-
-Windows ROCm requires Python 3.12 and AMD Adrenalin 25.3.1+ driver. `torch.compile` does not work on Windows ROCm — inference runs in eager mode (significantly slower than Linux).
-
-```powershell
-py -3.12 -m pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2/rocm-7.2.0.dev0-py3-none-win_amd64.whl
-py -3.12 -m pip install --no-cache-dir https://repo.radeon.com/rocm/windows/rocm-rel-7.2/torch-2.9.1+rocmsdk20260116-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2/torchvision-0.24.1+rocmsdk20260116-cp312-cp312-win_amd64.whl
-```
-
-**What CorridorKey does automatically on ROCm:**
-- Sets `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1` so SDPA dispatches to flash attention kernels on RDNA3 (without this, attention falls back to a slow O(n²) path)
-- Sets `MIOPEN_FIND_MODE=2` for faster convolution kernel selection (reduces warmup from 5-8 minutes to seconds)
-- Uses `torch.compile(mode="default")` on Linux to avoid OOM during kernel autotuning on 16GB cards
-- Skips `torch.compile` entirely on Windows ROCm where Triton compilation hangs
-- Auto-detects ROCm via `/opt/rocm` (Linux), `HIP_PATH` (Windows), or `CORRIDORKEY_ROCM=1` env var (explicit opt-in)
-
-**First-run note:** The first inference run on a new AMD GPU triggers Triton kernel autotuning (10-20 minutes). This is cached in `~/.cache/corridorkey/inductor/` and only happens once per GPU architecture. Subsequent runs start instantly.
-
-**16GB cards on Linux:** CorridorKey at 2048x2048 needs ~18GB. Windows handles this transparently via shared GPU memory (system RAM overflow). On Linux, the GPU has a hard VRAM limit. If you hit OOM on a 16GB card, install `pytorch-rocm-gtt` to enable GTT (system RAM as GPU overflow) — CorridorKey detects and uses it automatically:
-```bash
-pip install pytorch-rocm-gtt
-```
-GTT memory is accessed over PCIe (~10-20x slower than VRAM), so expect slower frame times on 16GB cards vs 20-24GB cards.
-
-**WSL2 limitation:** WSL2 cannot use GTT or shared memory — it has a hard VRAM limit. 16GB cards will OOM in WSL2 at 2048x2048. Use Windows native instead, or a card with 20GB+ VRAM.
-
-## Backend Selection
-
-CorridorKey supports two inference backends:
-- **Torch** (default on Linux/Windows) — CUDA, MPS, or CPU
-- **MLX** (Apple Silicon) — native Metal acceleration, no Torch overhead
-
-Resolution: `--backend` flag > `CORRIDORKEY_BACKEND` env var > auto-detect.
-Auto mode prefers MLX on Apple Silicon when available.
-
-**Override via CLI flag (corridorkey_cli.py):**
-```bash
-uv run python corridorkey_cli.py wizard --win_path "/path/to/clips" --backend mlx
-uv run python corridorkey_cli.py run_inference --backend torch
-```
-
-### MLX Setup (Apple Silicon)
-
-1. Install the MLX backend:
-   ```bash
-   uv sync --extra mlx
-   ```
-2. Obtain the MLX weights (`.safetensors`) — pick **one** option:
-
-   **Option A — Download pre-converted weights (simplest):**
-   ```bash
-   # Download weights from GitHub Releases into a local cache directory
-   uv run python -m corridorkey_mlx weights download
-
-   # Print the cached path, then copy to the checkpoints folder
-   WEIGHTS=$(uv run python -m corridorkey_mlx weights download --print-path)
-   cp "$WEIGHTS" CorridorKeyModule/checkpoints/corridorkey_mlx.safetensors
-   ```
-
-   **Option B — Convert from an existing `.pth` checkpoint:**
-   ```bash
-   # Clone the MLX repo (contains the conversion script)
-   git clone https://github.com/nikopueringer/corridorkey-mlx.git
-   cd corridorkey-mlx
-   uv sync
-
-   # Convert (point --checkpoint at your CorridorKey.pth)
-   uv run python scripts/convert_weights.py \
-       --checkpoint ../CorridorKeyModule/checkpoints/CorridorKey_v1.0.pth \
-       --output ../CorridorKeyModule/checkpoints/corridorkey_mlx.safetensors
-   cd ..
-   ```
-
-   > **Re-publishing the Torch-side official `.safetensors`:** use
-   > `scripts/convert_pth_to_safetensors.py` in this repo. It strips the
-   > `_orig_mod.` prefix, contiguises tensors, and verifies the round-trip.
-
-   Either way the final file must be at:
-   ```
-   CorridorKeyModule/checkpoints/corridorkey_mlx.safetensors
-   ```
-3. Run with auto-detection or explicit backend:
-   ```bash
-   CORRIDORKEY_BACKEND=mlx uv run python clip_manager.py --action run_inference
-   ```
-
-MLX uses img_size=2048 by default (same as Torch).
-
-### Troubleshooting
-- **"No .safetensors checkpoint found"** — place MLX weights in `CorridorKeyModule/checkpoints/`
-- **"corridorkey_mlx not installed"** — run `uv sync --extra mlx`
-- **"MLX requires Apple Silicon"** — MLX only works on M1+ Macs
-- **Auto picked Torch unexpectedly** — set `CORRIDORKEY_BACKEND=mlx` explicitly
 
 ## Advanced Usage
 
@@ -384,6 +201,8 @@ uv run pytest -v       # verbose output (shows each test name)
 ```
 
 ## CorridorKey Licensing and Permissions
+
+**Note: This is a fork of the original CorridorKey project. All licensing and permissions set forth by Niko Pueringer and Corridor Digital are strictly applicable to this fork as well.**
 
 Use this tool for whatever you'd like, including for processing images as part of a commercial project! You MAY NOT repackage this tool and sell it, and any variations or improvements of this tool that are released must remain under the same license, and must include the name Corridor Key.
 

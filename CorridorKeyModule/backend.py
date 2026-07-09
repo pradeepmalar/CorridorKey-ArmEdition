@@ -271,6 +271,11 @@ def _discover_checkpoint(ext: str, screen_color: str = "green") -> Path:
         raise ValueError(f"Unknown screen_color '{screen_color}'. Valid: {', '.join(VALID_SCREEN_COLORS)}")
 
     if ext == TORCH_EXT:
+        onnx_matches = _filter_by_color(_find_single(".onnx"), screen_color)
+        if onnx_matches:
+            logger.info("ONNX checkpoint found, prioritizing over PyTorch weights.")
+            return Path(onnx_matches[0])
+            
         safetensors_matches = _filter_by_color(_find_single(SAFETENSORS_EXT), screen_color)
         pth_matches = _filter_by_color(_find_single(TORCH_EXT), screen_color)
 
@@ -468,6 +473,15 @@ def create_engine(
     else:
         ckpt = _discover_checkpoint(TORCH_EXT, screen_color=screen_color)
         from CorridorKeyModule.inference_engine import CorridorKeyEngine
+
+        # ARM CPU FALLBACK OPTIMIZATIONS
+        import os
+        if device in ["cpu", "dml", None]:
+            os.environ["OMP_NUM_THREADS"] = "10"
+            os.environ["MKL_NUM_THREADS"] = "10"
+            # Force Draft resolution (512) to avoid hours-long inference
+            img_size = 512
+            logger.warning("Forcing Draft mode (512x512) and CPU thread count for Windows ARM fallback.")
 
         logger.info("Torch engine loaded: %s (device=%s, screen=%s)", ckpt.name, device, screen_color)
         return CorridorKeyEngine(

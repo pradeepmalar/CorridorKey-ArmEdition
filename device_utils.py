@@ -10,7 +10,7 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 
 DEVICE_ENV_VAR = "CORRIDORKEY_DEVICE"
-VALID_DEVICES = ("auto", "cuda", "mps", "cpu")
+VALID_DEVICES = ("auto", "cuda", "mps", "dml", "cpu")
 
 
 def is_rocm_system() -> bool:
@@ -63,7 +63,14 @@ def detect_best_device() -> str:
     elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         device = "mps"
     else:
-        device = "cpu"
+        try:
+            import onnxruntime as ort
+            if 'DmlExecutionProvider' in ort.get_available_providers():
+                device = "dml"
+            else:
+                device = "cpu"
+        except ImportError:
+            device = "cpu"
     logger.info("Auto-selected device: %s", device)
     return device
 
@@ -110,6 +117,13 @@ def resolve_device(requested: str | None = None) -> str:
             raise RuntimeError(
                 "MPS requested but not available on this machine. Requires Apple Silicon (M1+) with macOS 12.3+."
             )
+    elif device == "dml":
+        try:
+            import onnxruntime as ort
+            if "DmlExecutionProvider" not in ort.get_available_providers():
+                raise RuntimeError("DML requested but onnxruntime-directml is not installed or has no DML provider.")
+        except ImportError as e:
+            raise RuntimeError("DML requested but onnxruntime is not installed.") from e
 
     return device
 

@@ -55,6 +55,16 @@ base_folder = os.path.join(os.path.dirname(__file__), "checkpoints")
 
 class BiRefNetHandler:
     def __init__(self, device="cpu", usage="General"):
+        global half_precision
+        # PyTorch doesn't natively support DML; force CPU for BiRefNet hint generation
+        if device == "dml":
+            logging.warning("BiRefNet does not support DML natively. Falling back to CPU.")
+            device = "cpu"
+        
+        # PyTorch CPU doesn't handle FP16 well (often incredibly slow or hangs)
+        if device == "cpu":
+            half_precision = False
+            
         self.device = device
 
         # Set resolution
@@ -80,12 +90,14 @@ class BiRefNetHandler:
             local_dir_use_symlinks=False,  # Ensures actual files are downloaded, not just symlinks to the cache
         )
 
-        self.birefnet = AutoModelForImageSegmentation.from_pretrained(model_local_dir, trust_remote_code=False)
+        self.birefnet = AutoModelForImageSegmentation.from_pretrained(model_local_dir, trust_remote_code=True)
 
         self.birefnet.to(device)
         self.birefnet.eval()
         if half_precision:
             self.birefnet.half()
+        else:
+            self.birefnet.float()
 
     def cleanup(self):
         """Explicitly clear model and release GPU memory."""
